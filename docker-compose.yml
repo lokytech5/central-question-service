@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  user-db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE_USERS_SERVICE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - user_db_data:/var/lib/mysql
+    networks:
+      - pls-network
+
+  question-db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE_QUESTION_SERVICE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3308:3306"
+    volumes:
+      - question_db_data:/var/lib/mysql
+    networks:
+      - pls-network
+
+  service-registry:
+    image: lokytech/pls-service-registry:0.0.1-SNAPSHOT
+    ports:
+      - "8761:8761"
+    networks:
+      - pls-network
+
+  user-service:
+    image: lokytech/pls-user-service:0.0.1-SNAPSHOT
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:mysql://user-db:3306/${MYSQL_DATABASE_USERS_SERVICE}?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+      MANAGEMENT.ZIPKIN.TRACING.ENDPOINT: ${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - user-db
+    networks:
+      - pls-network
+
+  question-service:
+    image: lokytech/pls-question-service:0.0.1-SNAPSHOT
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:mysql://question-db:3306/${MYSQL_DATABASE_QUESTION_SERVICE}?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+      MANAGEMENT.ZIPKIN.TRACING.ENDPOINT: ${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT}
+    ports:
+      - "8200:8200"
+    depends_on:
+      - question-db
+    networks:
+      - pls-network
+
+  zipkin-server:
+    image: openzipkin/zipkin:2.23
+    ports:
+      - "9411:9411"
+    networks:
+      - pls-network
+
+volumes:
+  user_db_data:
+  question_db_data:
+
+
+networks:
+  pls-network:
